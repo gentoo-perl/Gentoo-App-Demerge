@@ -4,13 +4,13 @@
 #
 # demerge
 #
-# date        : 2007-04-18
+# date        : 2007-05-20
 # author      : Christian Hartmann <ian@gentoo.org>
-# version     : 0.043
+# version     : 0.044
 # license     : GPL-2
 # description : Revert to previous installation states.
 #
-# header      : $Header: /srv/cvsroot/demerge/demerge,v 1.16 2007/04/18 19:47:05 ian Exp $
+# header      : $Header: /srv/cvsroot/demerge/demerge,v 1.17 2007/05/20 10:01:07 ian Exp $
 #
 # -----------------------------------------------------------------------------
 #
@@ -36,7 +36,7 @@ use DirHandle;
 $|=1;
 
 # - init vars & constants >
-my $VERSION					= '0.043';
+my $VERSION					= '0.044';
 my $NEEDVERSION					= '0.043';
 my $DEBUG					= 0;
 my $comment					= '';
@@ -64,9 +64,6 @@ my %CACHE_getUseSettingsOfRecordedPackage	= ();
 my %CACHE_getUseSettingsOfInstalledPackageF	= ();
 my %CACHE_getUseSettingsOfRecordedPackageF	= ();
 my @CACHE_searchInstalledPackage		= ();
-
-# - workaround to fix bug in <dev-perl/PortageXS-0.02.05 >
-$pxs->{'EXCLUDE_DIRS'}{'virtual'}=0;
 
 # - init colors >
 my $yellow	= color('bold yellow');
@@ -328,12 +325,7 @@ elsif ($wipe>1) {
 			exit(1);
 		}
 	}
-	if (-e $homedir.'/'.$wipe.'.systemstate') { demergeCmdExec('rm '.$homedir.'/'.$wipe.'.systemstate'); }
-	if (-e $homedir.'/'.$wipe.'.version') { demergeCmdExec('rm '.$homedir.'/'.$wipe.'.version'); }
-	if (-e $homedir.'/'.$wipe.'.comment') { demergeCmdExec('rm '.$homedir.'/'.$wipe.'.comment'); }
-	if (-e $homedir.'/'.$wipe.'.world') { demergeCmdExec('rm '.$homedir.'/'.$wipe.'.world'); }
-	if (-e $homedir.'/'.$wipe.'.dvdb') { demergeCmdExec('rm '.$homedir.'/'.$wipe.'.dvdb'); }
-	if (-d $homedir.'/'.$wipe) { demergeCmdExec('rm -r '.$homedir.'/'.$wipe); }
+	wipe($wipe);
 	print " Done.\n";
 }
 
@@ -374,12 +366,7 @@ if ($wipeOlder) {
 	}
 	
 	foreach (@availableStates) {
-		demergeCmdExec('rm '.$homedir.'/'.$_.'.systemstate');
-		if (-e $homedir.'/'.$_.'.version') { demergeCmdExec('rm '.$homedir.'/'.$_.'.version'); }
-		if (-e $homedir.'/'.$_.'.comment') { demergeCmdExec('rm '.$homedir.'/'.$_.'.comment'); }
-		if (-e $homedir.'/'.$_.'.world') { demergeCmdExec('rm '.$homedir.'/'.$_.'.world'); }
-		if (-e $homedir.'/'.$_.'.dvdb') { demergeCmdExec('rm '.$homedir.'/'.$_.'.dvdb'); }
-		if (-d $homedir.'/'.$_) { demergeCmdExec('rm -r '.$homedir.'/'.$_); }
+		wipe($_);
 	}
 	print " Done.\n";
 }
@@ -390,6 +377,17 @@ exit(0);
 # -----------------------------------------------------------------------------
 # subs >
 # -----------------------------------------------------------------------------
+
+sub wipe {
+	my $wipe	= shift;
+	if (-e $homedir.'/'.$wipe.'.systemstate') { demergeCmdExec('rm '.$homedir.'/'.$wipe.'.systemstate'); }
+	if (-e $homedir.'/'.$wipe.'.version') { demergeCmdExec('rm '.$homedir.'/'.$wipe.'.version'); }
+	if (-e $homedir.'/'.$wipe.'.comment') { demergeCmdExec('rm '.$homedir.'/'.$wipe.'.comment'); }
+	if (-e $homedir.'/'.$wipe.'.world') { demergeCmdExec('rm '.$homedir.'/'.$wipe.'.world'); }
+	if (-e $homedir.'/'.$wipe.'.dvdb') { demergeCmdExec('rm '.$homedir.'/'.$wipe.'.dvdb'); }
+	if (-d $homedir.'/'.$wipe) { demergeCmdExec('rm -r '.$homedir.'/'.$wipe); }
+	return 1;
+}
 
 sub demergeReadConfig {
 	print $lightgreen.' * '.$reset.'Using configuration: '.$configfile."\n";
@@ -410,11 +408,26 @@ sub postsyncHook {
 			exit(0);
 		}
 	}
+	
+	# - Get latest state >
+	my @availableStates=getAvailableStates();
+	my $lastSystemState=$availableStates[$#availableStates];
+	
 	$comment='Postsync';
 	print $red.'demerge'.$reset.': Recording system state...';
 	$time=recordSystemState();
 	print "\n";
 	print $red.'demerge'.$reset.': Timestamp: '.$time."\n";
+	
+	# - Compare states >
+	if ($lastSystemState) {
+		if ($pxs->getFileContents($homedir.'/'.$lastSystemState.'.systemstate') eq $pxs->getFileContents($homedir.'/'.$time.'.systemstate')) {
+			# - States are identical - wipe newest >
+			print $red.'demerge'.$reset.': State is identical to '.$lastSystemState.'. Wiping '.$time.".\n";
+			wipe($time);
+		}
+	}
+	
 	return 1;
 }
 
@@ -847,7 +860,7 @@ demerge - Revert to previous installation states.
 
 =head1 VERSION
 
-This document refers to version 0.043 of demerge
+This document refers to version 0.044 of demerge
 
 =head1 SYNOPSIS
 

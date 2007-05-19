@@ -1,6 +1,10 @@
 Changelog
 ---------
 
+0.044
+- Do not record states in postsync when state is identical to the latest recorded state.
+- Require dev-perl/PortageXS-0.02.06
+
 0.043
 - Force recording virtuals (workaround to fix a bug in <dev-perl/PortageXS-0.02.05)
 - Removed pre-0.040 converter
