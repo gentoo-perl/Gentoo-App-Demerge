@@ -4,13 +4,13 @@
 #
 # demerge
 #
-# date        : 2007-05-20
+# date        : 2007-11-20
 # author      : Christian Hartmann <ian@gentoo.org>
-# version     : 0.044
+# version     : 0.045
 # license     : GPL-2
 # description : Revert to previous installation states.
 #
-# header      : $Header: /srv/cvsroot/demerge/demerge,v 1.17 2007/05/20 10:01:07 ian Exp $
+# header      : $Header: /srv/cvsroot/demerge/demerge,v 1.19 2007/11/20 19:36:41 ian Exp $
 #
 # -----------------------------------------------------------------------------
 #
@@ -29,6 +29,7 @@ use Term::ANSIColor;
 use Term::ReadKey;
 use File::Copy;
 use File::Path;
+use Shell::EnvImporter;
 use PortageXS;
 use PortageXS::UI::Spinner;
 use DirHandle;
@@ -36,7 +37,7 @@ use DirHandle;
 $|=1;
 
 # - init vars & constants >
-my $VERSION					= '0.044';
+my $VERSION					= '0.045';
 my $NEEDVERSION					= '0.043';
 my $DEBUG					= 0;
 my $comment					= '';
@@ -59,11 +60,15 @@ my @quickpkgPackages				= ();
 my $time					= 0;
 my %emergeOpts					= ();
 my $terminalWidth				= 80;
+my $missingEbuilds				= 0;
 my %CACHE_getUseSettingsOfInstalledPackage	= ();
 my %CACHE_getUseSettingsOfRecordedPackage	= ();
 my %CACHE_getUseSettingsOfInstalledPackageF	= ();
 my %CACHE_getUseSettingsOfRecordedPackageF	= ();
 my @CACHE_searchInstalledPackage		= ();
+my @CACHE_repos					= ();
+push(@CACHE_repos,getPortageMakeParam('PORTDIR'));
+push(@CACHE_repos,split(/ /,getPortageMakeParam('PORTDIR_OVERLAY')));
 
 # - init colors >
 my $yellow	= color('bold yellow');
@@ -153,6 +158,14 @@ else {
 		print $red.' Use this program carefully - otherwise you might run into problems.'.$reset."\n";
 		print $red.' You are root. You are responsible for your actions.'.$reset."\n";
 		print " Bugs and requests go to ian <ian\@gentoo.org>.\n\n";
+		
+		print " Following repositories will be used:\n";
+		my $number=0;
+		foreach (@CACHE_repos) {
+			$number++;
+			print ' ['.$number.'] '.$_."\n";
+		}
+		print "\n";
 	}
 }
 
@@ -240,6 +253,15 @@ if ($restoreSystemState || $restorePrevious) {
 	}
 	
 	if (!$do) {
+		if ($missingEbuilds) {
+			if ($missingEbuilds==1) {
+				print $red.' * '.$reset.$missingEbuilds." ebuild missing. Due to this demerge will not be able to revert to the given state!\n\n";
+			}
+			else {
+				print $red.' * '.$reset.$missingEbuilds." ebuilds are missing. Due to this demerge will not be able to revert to the given state!\n\n";
+			}
+			exit(1);
+		}
 		if ($pxs->cmdAskUser('Proceed?','y,n') eq 'n') {
 			print "\n";
 			print $yellow.' * '.$reset."Quitting.\n\n";
@@ -576,6 +598,7 @@ sub printStateDiff {
 		my $this_src='';
 		my $this_dest='';
 		my $has=0;
+		$missingEbuilds=0;
 		
 		# - Check for differences in the two states >
 		my @destState = split(/\n/,$pxs->getFileContents($homedir.'/'.$restoreSystemState.'.systemstate'));
@@ -625,6 +648,9 @@ sub printStateDiff {
 				if ($#emergePackages>-1) {
 					foreach (@emergePackages) {
 						print '        +'.$green.$_.$reset;
+						my $ebuildDa=ebuildDa($_);
+						if ($ebuildDa == 0) { $missingEbuilds++; $ebuildDa='MISSING'; }
+						print ' [',$ebuildDa,']';
 						demergeOutputUseflags(9,$_,$pxs->formatUseflags(split(/ /,getUseSettingsOfRecordedPackage($restoreSystemState.'/'.$_))));
 					}
 				}
@@ -648,6 +674,9 @@ sub printStateDiff {
 					print $lightgreen.' * '.$reset."Packages that will be installed:\n";
 					foreach (@emergePackages) {
 						print '   '.$green.$_.$reset;
+						my $ebuildDa=ebuildDa($_);
+						if ($ebuildDa == 0) { $missingEbuilds++; $ebuildDa='MISSING'; }
+						print ' [',$ebuildDa,']';
 						demergeOutputUseflags(3,$_,$pxs->formatUseflags(split(/ /,getUseSettingsOfRecordedPackage($restoreSystemState.'/'.$_))));
 					}
 					print "\n";
@@ -852,6 +881,83 @@ sub getAvailableStates {
 	return sort(@availableStates);
 }
 
+# - From autounmask-0.22 >
+sub getPortageMakeParam {
+	my $param		= shift;
+	my @files		= ();
+	my @etcfiles		= qw(/etc/make.globals /etc/make.conf);
+	my @profilefiles	= ();
+	my $v			= '';
+	my $parent		= '';
+	
+	my $curPath=$pxs->getProfilePath();
+	
+	while(1) {
+		if (-e $curPath.'/make.defaults') {
+			push(@profilefiles,$curPath.'/make.defaults');
+		}
+		if (! -e $curPath.'/parent') { last; }
+		$parent=$pxs->getFileContents($curPath.'/parent');
+		chomp($parent);
+		$curPath.='/'.$parent;
+	}
+	push(@files,reverse(@profilefiles));
+	push(@files,@etcfiles);
+	
+	foreach (@files) {
+		my $importer = Shell::EnvImporter->new(	shell		=> "bash",
+							file		=> $_,
+							auto_run	=> 1,
+							auto_import	=> 1
+					);
+		
+		$importer->shellobj->envcmd('set');
+		$importer->run();
+		
+		$v=$ENV{$param};
+		if ($v) {
+			$v=~s/^\$'(.*)'$/$1/m;
+			$v=~s/^'(.*)'$/$1/m;
+			$v=~s/\\n/ /g;
+			$v=~s/\\|\'|\\'|\$//gmxs;
+			$v=~s/^\s//;
+			$v=~s/\s$//;
+			$v=~s/\s{2,}/ /g;
+		}
+		else {
+			$v='';
+		}
+
+		$importer->restore_env();
+	}
+	
+	# - Defaults >
+	if ($param eq 'PORTDIR' && !$v) {
+		$v='/usr/portage';
+	}
+	
+	return $v;
+}
+
+# Description:
+# Check if ebuild is available and return number of repo
+sub ebuildDa {
+	my $ebuild	= shift;
+	my $number	= ($#CACHE_repos)+1;
+	
+	foreach (reverse(@CACHE_repos)) {
+		my $pn=(split(/\//,$pxs->getEbuildName($ebuild)))[1];
+		if ($pn) {
+			if (-e $_.'/'.$pxs->getEbuildName($ebuild).'/'.$pn.'-'.$pxs->getEbuildVersion($ebuild).'.ebuild') {
+				last;
+			}
+			$number--;
+		}
+	}
+	
+	return $number;
+}
+
 # - Here comes the POD >
 
 =head1 NAME
@@ -860,7 +966,7 @@ demerge - Revert to previous installation states.
 
 =head1 VERSION
 
-This document refers to version 0.044 of demerge
+This document refers to version 0.045 of demerge
 
 =head1 SYNOPSIS
 
