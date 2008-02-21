@@ -4,13 +4,13 @@
 #
 # demerge
 #
-# date        : 2007-11-20
+# date        : 2008-02-21
 # author      : Christian Hartmann <ian@gentoo.org>
-# version     : 0.045
+# version     : 0.046
 # license     : GPL-2
 # description : Revert to previous installation states.
 #
-# header      : $Header: /srv/cvsroot/demerge/demerge,v 1.19 2007/11/20 19:36:41 ian Exp $
+# header      : $Header: /srv/cvsroot/demerge/demerge,v 1.20 2008/02/21 18:24:21 ian Exp $
 #
 # -----------------------------------------------------------------------------
 #
@@ -37,7 +37,7 @@ use DirHandle;
 $|=1;
 
 # - init vars & constants >
-my $VERSION					= '0.045';
+my $VERSION					= '0.046';
 my $NEEDVERSION					= '0.043';
 my $DEBUG					= 0;
 my $comment					= '';
@@ -916,6 +916,8 @@ sub getPortageMakeParam {
 		
 		$v=$ENV{$param};
 		if ($v) {
+			$v=~s/\\t/ /g;
+			$v=~s/\t/ /g;
 			$v=~s/^\$'(.*)'$/$1/m;
 			$v=~s/^'(.*)'$/$1/m;
 			$v=~s/\\n/ /g;
@@ -966,7 +968,7 @@ demerge - Revert to previous installation states.
 
 =head1 VERSION
 
-This document refers to version 0.045 of demerge
+This document refers to version 0.046 of demerge
 
 =head1 SYNOPSIS
 

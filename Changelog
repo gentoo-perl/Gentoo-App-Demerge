@@ -1,6 +1,9 @@
 Changelog
 ---------
 
+0.046
+- Fix tab-replacement bug while parsing config-files
+
 0.045
 - Check if needed ebuilds are available. Show which ebuild will be used by portage when merging the package.
 
