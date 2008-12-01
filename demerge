@@ -4,13 +4,13 @@
 #
 # demerge
 #
-# date        : 2008-02-21
+# date        : 2008-12-01
 # author      : Christian Hartmann <ian@gentoo.org>
-# version     : 0.046
+# version     : 0.047
 # license     : GPL-2
 # description : Revert to previous installation states.
 #
-# header      : $Header: /srv/cvsroot/demerge/demerge,v 1.20 2008/02/21 18:24:21 ian Exp $
+# header      : $Header: /srv/cvsroot/demerge/demerge,v 1.21 2008/12/01 20:38:29 ian Exp $
 #
 # -----------------------------------------------------------------------------
 #
@@ -37,7 +37,7 @@ use DirHandle;
 $|=1;
 
 # - init vars & constants >
-my $VERSION					= '0.046';
+my $VERSION					= '0.047';
 my $NEEDVERSION					= '0.043';
 my $DEBUG					= 0;
 my $comment					= '';
@@ -67,8 +67,8 @@ my %CACHE_getUseSettingsOfInstalledPackageF	= ();
 my %CACHE_getUseSettingsOfRecordedPackageF	= ();
 my @CACHE_searchInstalledPackage		= ();
 my @CACHE_repos					= ();
-push(@CACHE_repos,getPortageMakeParam('PORTDIR'));
-push(@CACHE_repos,split(/ /,getPortageMakeParam('PORTDIR_OVERLAY')));
+push(@CACHE_repos,$pxs->getPortageMakeParam('PORTDIR'));
+push(@CACHE_repos,split(/ /,$pxs->getPortageMakeParam('PORTDIR_OVERLAY')));
 
 # - init colors >
 my $yellow	= color('bold yellow');
@@ -881,66 +881,6 @@ sub getAvailableStates {
 	return sort(@availableStates);
 }
 
-# - From autounmask-0.22 >
-sub getPortageMakeParam {
-	my $param		= shift;
-	my @files		= ();
-	my @etcfiles		= qw(/etc/make.globals /etc/make.conf);
-	my @profilefiles	= ();
-	my $v			= '';
-	my $parent		= '';
-	
-	my $curPath=$pxs->getProfilePath();
-	
-	while(1) {
-		if (-e $curPath.'/make.defaults') {
-			push(@profilefiles,$curPath.'/make.defaults');
-		}
-		if (! -e $curPath.'/parent') { last; }
-		$parent=$pxs->getFileContents($curPath.'/parent');
-		chomp($parent);
-		$curPath.='/'.$parent;
-	}
-	push(@files,reverse(@profilefiles));
-	push(@files,@etcfiles);
-	
-	foreach (@files) {
-		my $importer = Shell::EnvImporter->new(	shell		=> "bash",
-							file		=> $_,
-							auto_run	=> 1,
-							auto_import	=> 1
-					);
-		
-		$importer->shellobj->envcmd('set');
-		$importer->run();
-		
-		$v=$ENV{$param};
-		if ($v) {
-			$v=~s/\\t/ /g;
-			$v=~s/\t/ /g;
-			$v=~s/^\$'(.*)'$/$1/m;
-			$v=~s/^'(.*)'$/$1/m;
-			$v=~s/\\n/ /g;
-			$v=~s/\\|\'|\\'|\$//gmxs;
-			$v=~s/^\s//;
-			$v=~s/\s$//;
-			$v=~s/\s{2,}/ /g;
-		}
-		else {
-			$v='';
-		}
-
-		$importer->restore_env();
-	}
-	
-	# - Defaults >
-	if ($param eq 'PORTDIR' && !$v) {
-		$v='/usr/portage';
-	}
-	
-	return $v;
-}
-
 # Description:
 # Check if ebuild is available and return number of repo
 sub ebuildDa {
@@ -968,7 +908,7 @@ demerge - Revert to previous installation states.
 
 =head1 VERSION
 
-This document refers to version 0.046 of demerge
+This document refers to version 0.047 of demerge
 
 =head1 SYNOPSIS
 

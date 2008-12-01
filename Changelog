@@ -1,6 +1,9 @@
 Changelog
 ---------
 
+0.047
+- Make use of PortageXS 0.02.09 and fix some silly warnings
+
 0.046
 - Fix tab-replacement bug while parsing config-files
 
