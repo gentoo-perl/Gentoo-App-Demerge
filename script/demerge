@@ -81,7 +81,7 @@ my $blue	= color('bold blue');
 my $reset	= color('reset');
 
 # - Check if colors are allowed (first make.conf then .demergerc then command-line option) >
-if (lc($pxs->getParamFromFile($pxs->getFileContents('/etc/make.conf'),'NOCOLOR','lastseen')) eq 'true') {
+if (lc($pxs->getParamFromFile($pxs->getFileContents('/etc/portage/make.conf'),'NOCOLOR','lastseen')) eq 'true') {
 	$noColor=1;
 }
 else {
