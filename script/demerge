@@ -29,6 +29,7 @@ use Term::ANSIColor;
 use Term::ReadKey;
 use File::Copy;
 use File::Path;
+use Path::Tiny;
 use Shell::EnvImporter;
 use PortageXS;
 use PortageXS::UI::Spinner;
@@ -81,17 +82,17 @@ my $blue	= color('bold blue');
 my $reset	= color('reset');
 
 # - Check if colors are allowed (first make.conf then .demergerc then command-line option) >
-if (lc($pxs->getParamFromFile($pxs->getFileContents('/etc/portage/make.conf'),'NOCOLOR','lastseen')) eq 'true') {
+if (lc($pxs->getParamFromFile(path('/etc/portage/make.conf')->slurp,'NOCOLOR','lastseen')) eq 'true') {
 	$noColor=1;
 }
 else {
 	$noColor=0;
 }
 if (-e $configfile) {
-	if (lc($pxs->getParamFromFile($pxs->getFileContents($configfile),'nocolor','lastseen')) eq 'true') {
+	if (lc($pxs->getParamFromFile(path($configfile)->slurp,'nocolor','lastseen')) eq 'true') {
 		$noColor=1;
 	}
-	elsif (lc($pxs->getParamFromFile($pxs->getFileContents($configfile),'nocolor','lastseen')) eq 'false') {
+	elsif (lc($pxs->getParamFromFile(path($configfile)->slurp,'nocolor','lastseen')) eq 'false') {
 		$noColor=0;
 	}
 }
@@ -142,7 +143,7 @@ if ($< > 0) {
 else {
 	if ($postsync) {
 		if (-e $configfile) {
-			$homedir=$pxs->getParamFromFile($pxs->getFileContents($configfile),'datadir','lastseen');
+			$homedir=$pxs->getParamFromFile(path($configfile)->slurp,'datadir','lastseen');
 		}
 		postsyncHook();
 		exit(0);
@@ -206,7 +207,7 @@ if (!$recordSystemState && !$restoreSystemState && !$restorePrevious && !$wipe &
 			# - print timestamp && date && comment (if any) >
 			($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime($_);
 			print '   ',$_,' (',($year+1900),'-',sprintf('%02s',($mon+1)),'-',sprintf('%02s',$mday),' ',sprintf('%02s',$hour),':',sprintf('%02s',$min),':',sprintf('%02s',$sec),')';
-			print ' - ',$pxs->getFileContents($homedir.'/'.$_.'.comment') if (-e $homedir.'/'.$_.'.comment');
+			print ' - ',path($homedir, $_.'.comment')->slurp if (-e path($homedir, $_.'.comment'));
 			print "\n";
 			
 			if (!printStateDiff($_,1)) {
@@ -413,8 +414,8 @@ sub wipe {
 
 sub demergeReadConfig {
 	print $lightgreen.' * '.$reset.'Using configuration: '.$configfile."\n";
-	$homedir=$pxs->getParamFromFile($pxs->getFileContents($configfile),'datadir','lastseen');
-	if (lc($pxs->getParamFromFile($pxs->getFileContents($configfile),'usepkg','lastseen')) eq 'yes') {
+	$homedir=$pxs->getParamFromFile(path($configfile)->slurp,'datadir','lastseen');
+	if (lc($pxs->getParamFromFile(path($configfile)->slurp,'usepkg','lastseen')) eq 'yes') {
 		$emergeOpts{'usepkg'}='-k';
 		print $lightgreen.' * '.$reset."--usepkg enabled in configuration.\n";
 	}
@@ -443,7 +444,7 @@ sub postsyncHook {
 	
 	# - Compare states >
 	if ($lastSystemState) {
-		if ($pxs->getFileContents($homedir.'/'.$lastSystemState.'.systemstate') eq $pxs->getFileContents($homedir.'/'.$time.'.systemstate')) {
+		if (path($homedir,$lastSystemState.'.systemstate')->slurp eq path($homedir, $time.'.systemstate')->slurp) {
 			# - States are identical - wipe newest >
 			print $red.'demerge'.$reset.': State is identical to '.$lastSystemState.'. Wiping '.$time.".\n";
 			wipe($time);
@@ -493,12 +494,12 @@ sub recordSystemState {
 		@package_IUSE=();
 		@USEs=();
 		if (-e '/var/db/pkg/'.$_.'/USE') {
-			$uses=$pxs->getFileContents('/var/db/pkg/'.$_.'/USE');
+			$uses=path('/var/db/pkg', $_, 'USE')->slurp;
 			$uses=~s/\n//g;
 			@package_USE=split(/ /,$uses);
 		}
 		if (-e '/var/db/pkg/'.$_.'/IUSE') {
-			$iuses=$pxs->getFileContents('/var/db/pkg/'.$_.'/IUSE');
+			$iuses=path('/var/db/pkg',$_,'IUSE')->slurp;
 			$iuses=~s/\n//g;
 			@package_IUSE=split(/ /,$iuses);
 		}
@@ -601,7 +602,7 @@ sub printStateDiff {
 		$missingEbuilds=0;
 		
 		# - Check for differences in the two states >
-		my @destState = split(/\n/,$pxs->getFileContents($homedir.'/'.$restoreSystemState.'.systemstate'));
+		my @destState = split(/\n/,path($homedir,$restoreSystemState.'.systemstate')->slurp);
 		foreach $this_src (@CACHE_searchInstalledPackage) {
 			$has=0;
 			foreach $this_dest (@destState) {
@@ -766,7 +767,7 @@ sub getUseSettingsOfRecordedPackage {
 	$package=$category.'/'.$package;
 	
 	if (!$CACHE_getUseSettingsOfRecordedPackageF{$time.'/'.$package}) {
-		my @dvdb=split(/\n/,$pxs->getFileContents($homedir.'/'.$time.'.dvdb'));
+		my @dvdb=split(/\n/,path($homedir,$time.'.dvdb')->slurp);
 		foreach my $this_line (@dvdb) {
 			my @elements=split(/:/,$this_line);
 			$CACHE_getUseSettingsOfRecordedPackageF{$time.'/'.$elements[0]}=1;

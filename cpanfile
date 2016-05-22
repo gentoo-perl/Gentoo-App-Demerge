@@ -3,6 +3,7 @@ requires 'Term::ANSIColor';
 requires 'Term::ReadKey';
 requires 'File::Copy';
 requires 'File::Path';
+requires 'Path::Tiny';
 requires 'Shell::EnvImporter';
 requires 'PortageXS';
 requires 'PortageXS::UI::Spinner';

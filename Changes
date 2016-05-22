@@ -4,6 +4,7 @@ Changelog
 0.048 2016-05-22
  - First version on CPAN with minimal changes.
  - "make.conf" directory moved to /etc/portage
+ - Fix reliance on deprecated Path API in PortageXS
 
 0.047 2008-12-01
  - Make use of PortageXS 0.02.09 and fix some silly warnings
