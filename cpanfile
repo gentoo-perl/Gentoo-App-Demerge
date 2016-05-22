@@ -8,4 +8,7 @@ requires 'PortageXS';
 requires 'PortageXS::UI::Spinner';
 requires 'DirHandle';
 
+on test => sub {
+  requires 'Test::More' => '0.89';
+};
 # vim: syntax=perl
